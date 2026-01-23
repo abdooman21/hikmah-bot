@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/abdooman21/go-discord/internal/database"
 	"github.com/abdooman21/go-discord/quiz"
 	"github.com/abdooman21/go-discord/web"
 	"github.com/bwmarrin/discordgo"
@@ -14,11 +15,12 @@ import (
 
 type Application struct {
 	Bot *discordgo.Session
+	DB  *database.Queries
 }
 
 func (api *Application) Run() {
 
-	api.Bot.AddHandler(newMessage)
+	api.Bot.AddHandler(api.newMessage)
 
 	api.Bot.Open()
 	defer api.Bot.Close()
@@ -31,7 +33,7 @@ func (api *Application) Run() {
 
 }
 
-func newMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.Bot {
 		// for _, user := range m.Mentions {
 		// 	if user.ID == (s.State.User.ID) {
@@ -89,7 +91,7 @@ func newMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				// 		Content: fmt.Sprintf("إYou should provide zip code after the, \"%v\" ", Param[1]),
 				// 	})
 			case "كويز":
-				go quiz.Start_session(s, m)
+				go quiz.Start_session(s, m, api.DB)
 
 			}
 
