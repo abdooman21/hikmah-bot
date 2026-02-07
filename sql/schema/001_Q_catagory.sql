@@ -6,8 +6,8 @@ CREATE TABLE MainCatagories (
     englishName TEXT NOT NULL,
     description TEXT NOT NULL,
     icon_path TEXT DEFAULT '/icons/default.svg',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP
 );
 
 -- +goose Down

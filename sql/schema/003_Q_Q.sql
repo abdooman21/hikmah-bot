@@ -5,7 +5,7 @@ CREATE TABLE Questions (
     topic_id INTEGER NOT NULL,
     level_number INTEGER NOT NULL,
     q_text TEXT NOT NULL,
-    answers JSON NOT NULL, -- Storing the array here
+    answers JSONB NOT NULL, -- Storing the array here
     link TEXT,
     FOREIGN KEY (topic_id) REFERENCES Topics(id)
 );

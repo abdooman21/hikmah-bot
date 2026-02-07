@@ -15,8 +15,8 @@ type Maincatagory struct {
 	Englishname string
 	Description string
 	IconPath    sql.NullString
-	CreatedAt   interface{}
-	UpdatedAt   interface{}
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
 }
 
 type Question struct {
