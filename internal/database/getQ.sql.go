@@ -11,6 +11,57 @@ import (
 	"encoding/json"
 )
 
+const getRandomQByCatnLvl = `-- name: GetRandomQByCatnLvl :one
+SELECT 
+    q.id,
+    q.q_text,
+    q.answers,
+    q.link,
+    t.name AS topic_name,
+    c.englishname AS category_ename,
+    c.arabicName AS category_name,
+    c.icon_path
+FROM questions q
+JOIN topics t ON q.topic_id = t.id
+JOIN maincatagories c ON t.category_id = c.id
+WHERE c.id = $1 
+  AND q.level_number = $2
+ORDER BY RANDOM()
+LIMIT 1
+`
+
+type GetRandomQByCatnLvlParams struct {
+	ID          int32
+	LevelNumber int32
+}
+
+type GetRandomQByCatnLvlRow struct {
+	ID            int32
+	QText         string
+	Answers       json.RawMessage
+	Link          sql.NullString
+	TopicName     string
+	CategoryEname string
+	CategoryName  string
+	IconPath      sql.NullString
+}
+
+func (q *Queries) GetRandomQByCatnLvl(ctx context.Context, arg GetRandomQByCatnLvlParams) (GetRandomQByCatnLvlRow, error) {
+	row := q.db.QueryRowContext(ctx, getRandomQByCatnLvl, arg.ID, arg.LevelNumber)
+	var i GetRandomQByCatnLvlRow
+	err := row.Scan(
+		&i.ID,
+		&i.QText,
+		&i.Answers,
+		&i.Link,
+		&i.TopicName,
+		&i.CategoryEname,
+		&i.CategoryName,
+		&i.IconPath,
+	)
+	return i, err
+}
+
 const getRandomQuestionByCriteria = `-- name: GetRandomQuestionByCriteria :one
 SELECT 
     q.id, 
