@@ -9,19 +9,24 @@ import (
 	"github.com/abdooman21/go-discord/internal/database"
 	"github.com/abdooman21/go-discord/internal/env"
 	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+
+	godotenv.Load()
 
 	ds, err := discordgo.New("Bot " + env.GetString("DISCORD_TOKEN", ""))
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	dbUrl := os.Getenv("DB_URL")
 
 	if dbUrl == "" {
-		log.Fatal("Couldn't load database")
+		log.Fatal("Couldn't load database check .env")
 	}
 
 	conn, err := sql.Open("postgres", dbUrl)
