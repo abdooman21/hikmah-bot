@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -120,8 +122,10 @@ func insertData(dbConn *sql.DB, db Db) error {
 			}
 
 			for level, questions := range topic.LevelsData {
-				var levelNumber int
-				fmt.Sscanf(level, "$d", &levelNumber)
+				levelNumber, err := strconv.Atoi(strings.TrimPrefix(level, "level"))
+				if err != nil {
+					return fmt.Errorf("invalid level: %s", level)
+				}
 				for _, q := range questions {
 					// var qID int
 					ans, err := json.Marshal(q.Answers)
