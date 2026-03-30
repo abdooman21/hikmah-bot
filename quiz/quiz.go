@@ -21,20 +21,32 @@ func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *databas
 
 	args := strings.Fields(m.Content)
 	if len(args) < 3 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: !quiz [CategoryID] [Level]")
+		s.ChannelMessageSend(m.ChannelID, "الأستخدام \" كويز <رقم الفئة> <مستوى السؤال من 3>\"")
 		return
 	}
 
-	catID, _ := strconv.Atoi(args[1])
-	level, _ := strconv.Atoi(args[2])
+	catID, err := strconv.Atoi(args[1])
+	if err != nil {
+		log.Print("failed at catid, ", catID)
+		s.ChannelMessageSend(m.ChannelID, "!4## فشل بجلب السؤال خطا من المدخلات")
+		return
+	}
+	level, err := strconv.Atoi(args[2])
+	if err != nil {
+		log.Print("failed at catid, ", catID)
+		s.ChannelMessageSend(m.ChannelID, "!4## فشل بجلب السؤال خطا من المدخلات")
+		return
 
+	}
 	ctx := context.Background()
 	qData, err := db.GetRandomQByCatnLvl(ctx, database.GetRandomQByCatnLvlParams{
 		ID:          int32(catID),
 		LevelNumber: int32(level),
 	})
+
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Couldn't find a question for that level.")
+		log.Println("failed at getting Q, ", err.Error(), "params : cat Id ", catID, " level: ", level)
+		s.ChannelMessageSend(m.ChannelID, "!5## فشل بجلب السؤال المعذرة على الخطأ ")
 		return
 	}
 
