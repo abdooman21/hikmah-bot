@@ -1,21 +1,13 @@
 package bot
 
 import (
-	"fmt"
 	"math/rand/v2"
-	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/abdooman21/go-discord/quiz"
 	"github.com/abdooman21/go-discord/web"
 
 	"github.com/bwmarrin/discordgo"
-)
-
-var (
-	sessionScores = make(map[string]int) // Key: UserID, Value: Score
-	scoreMu       sync.Mutex
 )
 
 func (api *Application) HandleInteractions(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -25,75 +17,21 @@ func (api *Application) HandleInteractions(s *discordgo.Session, i *discordgo.In
 
 	customID := i.MessageComponentData().CustomID
 	// #TODO make the quiz handler in it's own function
-	if !strings.HasPrefix(customID, "quiz_") {
-		return
-	}
-
-	parts := strings.Split(customID, "_")
-	choice, _ := strconv.Atoi(parts[1])
-	correct, _ := strconv.Atoi(parts[2])
-
-	user := i.Member.User
-	if i.User != nil {
-		user = i.User
-	}
-
-	if choice == correct {
-		// err := db.AddPoint(context.Background(), database.AddPointParams{
-		// 	UserID:   user.ID,
-		// 	Username: user.Username,
-		// })
-
-		// if err != nil {
-		// 	log.Println("Score Update Error:", err)
-		// }
-		scoreMu.Lock()
-		sessionScores[user.ID]++
-		currentScore := sessionScores[user.ID]
-		scoreMu.Unlock()
-		actionRow := i.Message.Components[0].(*discordgo.ActionsRow)
-		correctBtn := actionRow.Components[correct].(*discordgo.Button)
-
-		oldembed := i.Message.Embeds[0]
-		oldembed.Description += fmt.Sprintf("\n الجواب الصحيح هو : %s ", correctBtn.Label)
-		oldembed.Color = 0x00FF00 // Green
-
-		msg := fmt.Sprintf(" إجابة صحيحة من **%s**! حصلت على نقطة.", user.Username)
-
+	checkID := strings.Split(customID, "_")
+	switch checkID[0] {
+	case "quiz":
+		quiz.QuizInteractionHandler(s, i, api.DB)
+	case "session":
+		quiz.SessionInteractionHandler(s, i, api.DB)
+	default:
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Embeds: []*discordgo.MessageEmbed{{
-					Title:       "🏆 بطل الكويز",
-					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي %d ", user.Username, currentScore),
-					Thumbnail: &discordgo.MessageEmbedThumbnail{
-						URL: user.AvatarURL("128"),
-					},
-					Color: 0xFFFF00, // Gold
-				}},
-			},
-		})
-
-		// disable buttons
-		s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-			ID:         i.Message.ID,
-			Channel:    i.ChannelID,
-			Embeds:     &[]*discordgo.MessageEmbed{oldembed},
-			Components: &[]discordgo.MessageComponent{},
-		})
-
-	} else {
-		//  Send ephemeral message
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: " إجابة خاطئة! حاول مرة أخرى.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+			Data: &discordgo.InteractionResponseData{Content: "oops where I am \"eyes\" ", Flags: 64},
 		})
 	}
+
 }
+
 func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.Bot {
 		// for _, user := range m.Mentions {
