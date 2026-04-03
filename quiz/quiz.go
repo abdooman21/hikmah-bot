@@ -323,15 +323,23 @@ func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *databas
 		return
 	}
 
-	// Initialize new session
 	session := &QuizSession{
-		ChannelID:    m.ChannelID,
+		ChannelID: m.ChannelID,
+		MessageID: m.Author.Username + "." + m.ChannelID, // question message
+		StartedBy: m.Author.ID,
+
 		CurrentRound: 0,
-		MaxRounds:    5, // Set how many rounds you want
+		MaxRounds:    5, // #!!TODO Change it Dynamicly
+
+		//  CategoryID int         // TODO also update this dynamicly
+		//  Difficulty int
+
 		Scores:       make(map[string]int),
 		Participants: make(map[string]string),
-		IsActive:     true,
+
+		IsActive: true,
 	}
+
 	activeSessions[m.ChannelID] = session
 	sessionsMu.Unlock()
 
