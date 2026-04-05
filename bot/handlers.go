@@ -23,6 +23,8 @@ func (api *Application) HandleInteractions(s *discordgo.Session, i *discordgo.In
 		quiz.QuizInteractionHandler(s, i, api.DB)
 	case "session":
 		quiz.SessionInteractionHandler(s, i, api.DB)
+	case "setup":
+		quiz.SetupInteractionHandler(s, i, api.DB)
 	default:
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -95,6 +97,19 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 
 			case "كويز":
 				go quiz.Start_session(s, m, api.DB)
+
+			case "مساعدة":
+				helpEmbed := &discordgo.MessageEmbed{
+					Title: "📖 كيف تستخدمني",
+					Color: 0x5865F2,
+					Fields: []*discordgo.MessageEmbedField{
+						{Name: "@bot سؤال", Value: "سؤال عشوائي واحد\nاختياري: `@bot سؤال [1-6] [1-3]` (تصنيف ثم صعوبة)", Inline: false},
+						{Name: "@bot كويز", Value: "جلسة 5 جولات — ستظهر أزرار لاختيار التصنيف والصعوبة", Inline: false},
+						{Name: "التصنيفات (1-6)", Value: "١ التفسير · ٢ العقيدة · ٣ الحديث · ٤ الفقه · ٥ التاريخ · ٦ اللغة_العربية", Inline: false},
+						{Name: "الصعوبة (1-3)", Value: "١ سهل · ٢ متوسط · ٣ صعب", Inline: false},
+					},
+				}
+				s.ChannelMessageSendEmbed(m.ChannelID, helpEmbed)
 
 			}
 

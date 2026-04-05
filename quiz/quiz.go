@@ -254,6 +254,7 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 	if choice == correct {
 		session.Mutex.Lock()
 		session.Scores[user.ID]++
+		curScore := session.Scores[user.ID]
 		session.Participants[user.ID] = user.Username
 		session.CurrentRound++
 		roundReached := session.CurrentRound
@@ -275,7 +276,7 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 				Content: msg,
 				Embeds: []*discordgo.MessageEmbed{{
 					Title:       "🏆 بطل الكويز",
-					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي %d ", user.Username, session.Scores[user.ID]),
+					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي %d ", user.Username, curScore),
 					Thumbnail: &discordgo.MessageEmbedThumbnail{
 						URL: user.AvatarURL("128"),
 					},
@@ -293,16 +294,17 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 
 		if roundReached < maxRounds {
 			// #TODO change delay logic
-			time.Sleep(2 * time.Second)
+			go func() {
+				time.Sleep(2 * time.Second)
 
-			nextCat := rand.IntN(6) + 1
-			nextLvl := (roundReached / 3) + 1 // Increase difficulty
-			if nextLvl > 3 {
-				nextLvl = 3
-			}
+				nextCat := rand.IntN(6) + 1
+				nextLvl := (roundReached / 3) + 1 // Increase difficulty
+				if nextLvl > 3 {
+					nextLvl = 3
+				}
 
-			send_QwithCriteria(s, i.ChannelID, db, "session", nextCat, nextLvl)
-
+				send_QwithCriteria(s, i.ChannelID, db, "session", nextCat, nextLvl)
+			}()
 		} else {
 			finishSession(s, i.ChannelID, session)
 		}
@@ -315,38 +317,38 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Queries) {
-	sessionsMu.Lock()
-	if _, exists := activeSessions[m.ChannelID]; exists {
-		sessionsMu.Unlock()
-		s.ChannelMessageSend(m.ChannelID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
-		return
-	}
+// func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Queries) {
+// 	sessionsMu.Lock()
+// 	if _, exists := activeSessions[m.ChannelID]; exists {
+// 		sessionsMu.Unlock()
+// 		s.ChannelMessageSend(m.ChannelID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
+// 		return
+// 	}
 
-	session := &QuizSession{
-		ChannelID: m.ChannelID,
-		MessageID: m.Author.Username + "." + m.ChannelID, // question message
-		StartedBy: m.Author.ID,
+// 	session := &QuizSession{
+// 		ChannelID: m.ChannelID,
+// 		MessageID: m.Author.Username + "." + m.ChannelID, // question message
+// 		StartedBy: m.Author.ID,
 
-		CurrentRound: 0,
-		MaxRounds:    5, // #!!TODO Change it Dynamicly
+// 		CurrentRound: 0,
+// 		MaxRounds:    5, // #!!TODO Change it Dynamicly
 
-		//  CategoryID int         // TODO also update this dynamicly
-		//  Difficulty int
+// 		//  CategoryID int         // TODO also update this dynamicly
+// 		//  Difficulty int
 
-		Scores:       make(map[string]int),
-		Participants: make(map[string]string),
+// 		Scores:       make(map[string]int),
+// 		Participants: make(map[string]string),
 
-		IsActive: true,
-	}
+// 		IsActive: true,
+// 	}
 
-	activeSessions[m.ChannelID] = session
-	sessionsMu.Unlock()
+// 	activeSessions[m.ChannelID] = session
+// 	sessionsMu.Unlock()
 
-	s.ChannelMessageSend(m.ChannelID, "🎮 **بدأ الكويز!** استعدوا لـ 5 جولات...")
+// 	s.ChannelMessageSend(m.ChannelID, "🎮 **بدأ الكويز!** استعدوا لـ 5 جولات...")
 
-	send_QwithCriteria(s, m.ChannelID, db, "session", rand.IntN(6)+1, 1)
-}
+// 	send_QwithCriteria(s, m.ChannelID, db, "session", rand.IntN(6)+1, 1)
+// }
 
 func finishSession(s *discordgo.Session, channelID string, session *QuizSession) {
 	sessionsMu.Lock()
@@ -359,4 +361,42 @@ func finishSession(s *discordgo.Session, channelID string, session *QuizSession)
 	}
 
 	s.ChannelMessageSend(channelID, leaderboard)
+}
+
+func startSessionWithParams(s *discordgo.Session, channID, userID string, db *database.Queries, cat, diff int) {
+	sessionsMu.Lock()
+	if _, exists := activeSessions[channID]; exists {
+		sessionsMu.Unlock()
+		s.ChannelMessageSend(channID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
+		return
+	}
+	session := &QuizSession{
+		ChannelID:    channID,
+		StartedBy:    userID,
+		MaxRounds:    5,
+		CategoryID:   cat,
+		Difficulty:   diff,
+		Scores:       make(map[string]int),
+		Participants: make(map[string]string),
+		IsActive:     true,
+	}
+	activeSessions[channID] = session
+	sessionsMu.Unlock()
+
+	s.ChannelMessageSend(channID, "🎮 **بدأ الكويز!** استعدوا لـ 5 جولات...")
+	send_QwithCriteria(s, channID, db, "session", cat, diff)
+}
+
+func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Queries) {
+	sessionsMu.RLock()
+	_, exists := activeSessions[m.ChannelID]
+	sessionsMu.RUnlock()
+	pendingMu.Lock()
+	pendingSetups[m.ChannelID] = &pendingSetup{StartedBy: m.Author.ID}
+	pendingMu.Unlock()
+	if exists {
+		s.ChannelMessageSend(m.ChannelID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
+		return
+	}
+	SendSetupMessage(s, m.ChannelID)
 }
