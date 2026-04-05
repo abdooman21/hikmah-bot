@@ -317,39 +317,6 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 	}
 }
 
-// func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Queries) {
-// 	sessionsMu.Lock()
-// 	if _, exists := activeSessions[m.ChannelID]; exists {
-// 		sessionsMu.Unlock()
-// 		s.ChannelMessageSend(m.ChannelID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
-// 		return
-// 	}
-
-// 	session := &QuizSession{
-// 		ChannelID: m.ChannelID,
-// 		MessageID: m.Author.Username + "." + m.ChannelID, // question message
-// 		StartedBy: m.Author.ID,
-
-// 		CurrentRound: 0,
-// 		MaxRounds:    5, // #!!TODO Change it Dynamicly
-
-// 		//  CategoryID int         // TODO also update this dynamicly
-// 		//  Difficulty int
-
-// 		Scores:       make(map[string]int),
-// 		Participants: make(map[string]string),
-
-// 		IsActive: true,
-// 	}
-
-// 	activeSessions[m.ChannelID] = session
-// 	sessionsMu.Unlock()
-
-// 	s.ChannelMessageSend(m.ChannelID, "🎮 **بدأ الكويز!** استعدوا لـ 5 جولات...")
-
-// 	send_QwithCriteria(s, m.ChannelID, db, "session", rand.IntN(6)+1, 1)
-// }
-
 func finishSession(s *discordgo.Session, channelID string, session *QuizSession) {
 	sessionsMu.Lock()
 	delete(activeSessions, channelID)
