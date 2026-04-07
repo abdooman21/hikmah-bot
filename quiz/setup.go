@@ -38,6 +38,7 @@ func SendSetupMessage(s *discordgo.Session, channID string) {
 		discordgo.Button{Label: "متوسط", Style: discordgo.PrimaryButton, CustomID: "setup_diff_2"},
 		discordgo.Button{Label: "صعب", Style: discordgo.DangerButton, CustomID: "setup_diff_3"},
 	}
+	gobtn := discordgo.Button{Label: "أنطلق!", Style: discordgo.DangerButton, CustomID: "setup_go"}
 
 	_, err := s.ChannelMessageSendComplex(channID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
@@ -50,6 +51,7 @@ func SendSetupMessage(s *discordgo.Session, channID string) {
 			discordgo.ActionsRow{Components: row1},
 			discordgo.ActionsRow{Components: row2},
 			discordgo.ActionsRow{Components: diffButtons},
+			discordgo.ActionsRow{Components: []discordgo.MessageComponent{gobtn}},
 		},
 	})
 
@@ -59,7 +61,7 @@ func SendSetupMessage(s *discordgo.Session, channID string) {
 }
 
 type pendingSetup struct {
-	CategoryID int
+	CategoryID []int
 	Difficulty int
 	StartedBy  string
 }
@@ -102,13 +104,13 @@ func SetupInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreat
 	switch parts[1] {
 	case "cat":
 		v, _ := strconv.Atoi(parts[2])
-		p.CategoryID = v
+		p.CategoryID = append(p.CategoryID, v)
 	case "diff":
 		v, _ := strconv.Atoi(parts[2])
 		p.Difficulty = v
 	}
 
-	ready := p.CategoryID > 0 && p.Difficulty > 0
+	ready := p.Difficulty > 0
 	cat, diff := p.CategoryID, p.Difficulty
 	if ready {
 		delete(pendingSetups, channID)
