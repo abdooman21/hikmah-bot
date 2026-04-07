@@ -29,7 +29,7 @@ type QuizSession struct {
 	CurrentRound int
 	MaxRounds    int
 
-	CategoryID int
+	CategoryID []int
 	Difficulty int
 
 	Scores       map[string]int    // UserID -> Score
@@ -43,11 +43,17 @@ type QuizSession struct {
 var activeSessions = make(map[string]*QuizSession)
 var sessionsMu sync.RWMutex
 
-func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queries, session string, cat, lvl int) {
+func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queries, session string, cat []int, lvl int) {
+	var catID int
+	if len(cat) <= 0 {
+		catID = rand.IntN(6) + 1
+	} else {
+		catID = rand.IntN(len(cat))
+	}
 
 	ctx := context.Background()
 	qData, err := db.GetRandomQByCatnLvl(ctx, database.GetRandomQByCatnLvlParams{
-		ID:          int32(cat),
+		ID:          int32(catID),
 		LevelNumber: int32(lvl),
 	})
 
@@ -159,7 +165,7 @@ func Get_Q(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Querie
 		}
 	}
 
-	send_QwithCriteria(s, m.ChannelID, db, "quiz", cat, lvl)
+	send_QwithCriteria(s, m.ChannelID, db, "quiz", []int{cat}, lvl)
 }
 
 func QuizInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate, db *database.Queries) {
@@ -259,6 +265,7 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 		session.CurrentRound++
 		roundReached := session.CurrentRound
 		maxRounds := session.MaxRounds
+		cat := session.CategoryID
 		session.Mutex.Unlock()
 
 		actionRow := i.Message.Components[0].(*discordgo.ActionsRow)
@@ -297,13 +304,13 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 			go func() {
 				time.Sleep(2 * time.Second)
 
-				nextCat := rand.IntN(6) + 1
+				// nextCat := rand.IntN(6) + 1  TODO remove
 				nextLvl := (roundReached / 3) + 1 // Increase difficulty
 				if nextLvl > 3 {
 					nextLvl = 3
 				}
 
-				send_QwithCriteria(s, i.ChannelID, db, "session", nextCat, nextLvl)
+				send_QwithCriteria(s, i.ChannelID, db, "session", cat, nextLvl)
 			}()
 		} else {
 			finishSession(s, i.ChannelID, session)
@@ -330,7 +337,7 @@ func finishSession(s *discordgo.Session, channelID string, session *QuizSession)
 	s.ChannelMessageSend(channelID, leaderboard)
 }
 
-func startSessionWithParams(s *discordgo.Session, channID, userID string, db *database.Queries, cat, diff int) {
+func startSessionWithParams(s *discordgo.Session, channID, userID string, db *database.Queries, cat []int, diff int) {
 	sessionsMu.Lock()
 	if _, exists := activeSessions[channID]; exists {
 		sessionsMu.Unlock()
