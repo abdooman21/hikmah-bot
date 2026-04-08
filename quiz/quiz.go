@@ -48,7 +48,7 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 	if len(cat) <= 0 {
 		catID = rand.IntN(6) + 1
 	} else {
-		catID = rand.IntN(len(cat))
+		catID = cat[rand.IntN(len(cat))]
 	}
 
 	ctx := context.Background()
