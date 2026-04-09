@@ -51,10 +51,15 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 		catID = cat[rand.IntN(len(cat))]
 	}
 
+	targetLvl := lvl
+	if lvl == 0 {
+		targetLvl = rand.IntN(3) + 1
+	}
+
 	ctx := context.Background()
 	qData, err := db.GetRandomQByCatnLvl(ctx, database.GetRandomQByCatnLvlParams{
 		ID:          int32(catID),
-		LevelNumber: int32(lvl),
+		LevelNumber: int32(targetLvl),
 	})
 
 	if err != nil {
@@ -266,6 +271,7 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 		roundReached := session.CurrentRound
 		maxRounds := session.MaxRounds
 		cat := session.CategoryID
+		lvl := session.Difficulty
 		session.Mutex.Unlock()
 
 		actionRow := i.Message.Components[0].(*discordgo.ActionsRow)
@@ -304,13 +310,7 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 			go func() {
 				time.Sleep(2 * time.Second)
 
-				// nextCat := rand.IntN(6) + 1  TODO remove
-				nextLvl := (roundReached / 3) + 1 // Increase difficulty
-				if nextLvl > 3 {
-					nextLvl = 3
-				}
-
-				send_QwithCriteria(s, i.ChannelID, db, "session", cat, nextLvl)
+				send_QwithCriteria(s, i.ChannelID, db, "session", cat, lvl)
 			}()
 		} else {
 			finishSession(s, i.ChannelID, session)

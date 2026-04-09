@@ -77,136 +77,93 @@ var pendingMu sync.Mutex
 
 func SetupInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate, db *database.Queries) {
 	parts := strings.Split(i.MessageComponentData().CustomID, "_")
-	// parts: ["setup", "go|cat"|"diff", value]
-	channID := i.ChannelID
-
-	user := i.Member.User
-	if i.User != nil {
-		user = i.User
+	action, valStr := parts[1], ""
+	if len(parts) > 2 {
+		valStr = parts[2]
 	}
 
 	pendingMu.Lock()
-	p, ok := pendingSetups[channID]
+	defer pendingMu.Unlock()
+
+	p, ok := pendingSetups[i.ChannelID]
 	if !ok {
-		p = &pendingSetup{StartedBy: user.ID}
-		pendingSetups[channID] = p
+		p = &pendingSetup{StartedBy: i.Member.User.ID}
+		pendingSetups[i.ChannelID] = p
 	}
 
-	if p.StartedBy != user.ID {
-		pendingMu.Unlock()
+	if p.StartedBy != i.Member.User.ID && i.User != nil && p.StartedBy != i.User.ID {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "⛔ فقط من بدأ الكويز يمكنه اختيار الإعدادات.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+			Data: &discordgo.InteractionResponseData{Content: "⛔ التعديل متاح فقط لمن بدأ الجلسة.", Flags: 64},
 		})
 		return
 	}
 
-	if parts[1] == "go" {
+	switch action {
+	case "go":
 		if len(p.CategoryID) == 0 {
-			pendingMu.Unlock()
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "⚠️ يرجى اختيار تصنيف واحد على الأقل!",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-			return
-		} else if p.Difficulty == 0 {
-			pendingMu.Unlock()
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "⚠️ يرجى تحديد صعوبة", // Remove this later
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+				Data: &discordgo.InteractionResponseData{Content: "⚠️ اختر تصنيفاً واحداً على الأقل!", Flags: 64},
 			})
 			return
 		}
-
-		cat, diff := p.CategoryID, p.Difficulty
-		delete(pendingSetups, channID)
-		pendingMu.Unlock()
-
-		// 1. EDIT the original setup message to say "Started"
+		delete(pendingSetups, i.ChannelID)
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 			Data: &discordgo.InteractionResponseData{
-				Embeds: []*discordgo.MessageEmbed{{
-					Title:       "🎮 بدأ الكويز!",
-					Description: "تم إغلاق الإعدادات، انطلقت المسابقة الآن...",
-					Color:       0x00FF00,
-				}},
+				Embeds:     []*discordgo.MessageEmbed{{Title: "🎮 بدأ الكويز!", Color: 0x00FF00}},
 				Components: []discordgo.MessageComponent{},
 			},
 		})
-
-		startSessionWithParams(s, channID, user.ID, db, cat, diff)
+		go startSessionWithParams(s, i.ChannelID, p.StartedBy, db, p.CategoryID, p.Difficulty)
 		return
-	}
 
-	if parts[1] == "cat" {
-		v, err := strconv.Atoi(parts[2])
-		if err != nil {
-			log.Println("failed at cat/btn conversion for , ", parts[2])
-			return
-		}
-		found := false
-		if v == 9 {
-
+	case "cat":
+		v, _ := strconv.Atoi(valStr)
+		if v == 9 { // select ALL
 			if len(p.CategoryID) == 6 {
 				p.CategoryID = []int{}
 			} else {
 				p.CategoryID = []int{1, 2, 3, 4, 5, 6}
 			}
-			goto C1
 		} else {
-			for idx, existing := range p.CategoryID {
-				if existing == v {
+			found := false
+			for idx, id := range p.CategoryID {
+				if id == v {
 					p.CategoryID = append(p.CategoryID[:idx], p.CategoryID[idx+1:]...)
 					found = true
 					break
 				}
 			}
+			if !found {
+				p.CategoryID = append(p.CategoryID, v)
+			}
 		}
-		if !found {
-			p.CategoryID = append(p.CategoryID, v)
-		}
-	}
 
-	if parts[1] == "diff" {
-		v, err := strconv.Atoi(parts[2])
-		if err != nil {
-			log.Println("failed at diff/btn conversion for , ", parts[2])
-			return
-		}
+	case "diff":
+		v, _ := strconv.Atoi(valStr)
 		p.Difficulty = v
 	}
-C1:
-	selectedCats := ""
-	for _, id := range p.CategoryID {
-		selectedCats += categories[id] + " ، "
-	}
-	if selectedCats == "" {
-		selectedCats = "لم يتم الاختيار"
-	}
 
-	diffText := []string{"غير محدد", "سهل", "متوسط", "صعب"}
+	selected := ""
+	for _, id := range p.CategoryID {
+		selected += categories[id] + " ، "
+	}
+	if selected == "" {
+		selected = "لم يتم الاختيار"
+	}
+	diffs := []string{"عشوائي 🎲", "سهل 🟢", "متوسط 🟡", "صعب 🔴"}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{{
-				Title: "🎮 إعداد الكويز",
-				Description: fmt.Sprintf("**التصنيفات المختارة:** %s\n**الصعوبة:** %s",
-					selectedCats, diffText[p.Difficulty]),
-				Color: 0x5865F2,
+				Title:       "🎮 إعداد الكويز",
+				Description: fmt.Sprintf("**التصنيفات:** %s\n**الصعوبة:** %s", selected, diffs[p.Difficulty]),
+				Color:       0x5865F2,
 			}},
 			Components: i.Message.Components,
 		},
 	})
-	pendingMu.Unlock()
 }
