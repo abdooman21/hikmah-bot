@@ -16,8 +16,12 @@ bin
 vendor/
 
 
-
+hikmah-bot
 # canceled for now
 web/weatherapi.go
 
+
 .env
+
+# soon
+voice

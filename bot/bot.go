@@ -12,6 +12,9 @@ import (
 type Application struct {
 	Bot *discordgo.Session
 	DB  *database.Queries
+
+	// added
+	// Voice *voice.VoiceManager
 }
 
 func (api *Application) Run() {

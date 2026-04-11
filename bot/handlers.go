@@ -111,9 +111,51 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 				}
 				s.ChannelMessageSendEmbed(m.ChannelID, helpEmbed)
 
+			// added
+
+			case "راديو":
+				// Find which voice channel the user is currently in
+				s.ChannelTyping(m.ChannelID)
+				s.ChannelMessageSend(m.ChannelID, "⚠️ قريباَ! , قيد الإنشاء")
+				// voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
+				// if voiceChannelID == "" {
+				// 	s.ChannelMessageSend(m.ChannelID, "⚠️ يجب أن تكون في قناة صوتية أولاً.")
+				// 	return
+				// }
+
+				// if err := api.Voice.Join(s, m.GuildID, voiceChannelID); err != nil {
+				// 	log.Println("voice join error:", err)
+				// 	s.ChannelMessageSend(m.ChannelID, "❌ فشل الانضمام إلى القناة الصوتية.")
+				// 	return
+				// }
+				// s.ChannelMessageSend(m.ChannelID, "📻 جارٍ تشغيل راديو القرآن الكريم...")
+
+				// case "وقف":
+				// 	if !api.Voice.IsActive(m.GuildID) {
+				// 		s.ChannelMessageSend(m.ChannelID, "⚠️ البوت ليس في أي قناة صوتية.")
+				// 		return
+				// 	}
+				// 	api.Voice.Leave(m.GuildID)
+				// 	s.ChannelMessageSend(m.ChannelID, "⏹️ تم إيقاف البث وقطع الاتصال.")
+
 			}
 
 		}
 
 	}
 }
+
+// findUserVoiceChannel returns the voice channel ID the user is currently in,
+// or an empty string if they are not in any voice channel.
+// func findUserVoiceChannel(s *discordgo.Session, guildID, userID string) string {
+// 	guild, err := s.State.Guild(guildID)
+// 	if err != nil {
+// 		return ""
+// 	}
+// 	for _, vs := range guild.VoiceStates {
+// 		if vs.UserID == userID {
+// 			return vs.ChannelID
+// 		}
+// 	}
+// 	return ""
+// }

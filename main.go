@@ -38,6 +38,9 @@ func main() {
 	app := bot.Application{
 		Bot: ds,
 		DB:  db,
+
+		//added
+		// Voice: voice.NewVoiceManager(),
 	}
 
 	log.Println("bot running !!")
