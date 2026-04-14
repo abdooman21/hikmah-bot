@@ -32,4 +32,4 @@ volumes:
 networks:
   hikmah-net:
     driver: bridge
-    name: hikmah-net               # ← add this line
+    name: hikmah-net 

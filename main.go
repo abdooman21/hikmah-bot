@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/abdooman21/go-discord/bot"
+	"github.com/abdooman21/go-discord/bot/voice"
 	"github.com/abdooman21/go-discord/internal/database"
 	"github.com/abdooman21/go-discord/internal/env"
 	"github.com/bwmarrin/discordgo"
@@ -40,7 +41,7 @@ func main() {
 		DB:  db,
 
 		//added
-		// Voice: voice.NewVoiceManager(),
+		Voice: voice.NewVoiceManager(),
 	}
 
 	log.Println("bot running !!")

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/abdooman21/go-discord/bot/voice"
 	"github.com/abdooman21/go-discord/internal/database"
 	"github.com/bwmarrin/discordgo"
 )
@@ -14,7 +15,7 @@ type Application struct {
 	DB  *database.Queries
 
 	// added
-	// Voice *voice.VoiceManager
+	Voice *voice.VoiceManager
 }
 
 func (api *Application) Run() {
