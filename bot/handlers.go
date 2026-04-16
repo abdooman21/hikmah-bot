@@ -139,6 +139,19 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 				api.Voice.Leave(m.GuildID)
 				s.ChannelMessageSend(m.ChannelID, "⏹️ تم إيقاف البث وقطع الاتصال.")
 
+			case "تست":
+				voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
+				if voiceChannelID == "" {
+					s.ChannelMessageSend(m.ChannelID, "⚠️ يجب أن تكون في قناة صوتية أولاً.")
+					return
+				}
+				if err := api.Voice.JoinTest(s, m.GuildID, voiceChannelID); err != nil {
+					log.Println("voice test join error:", err)
+					s.ChannelMessageSend(m.ChannelID, "❌ فشل.")
+					return
+				}
+				s.ChannelMessageSend(m.ChannelID, "🔊 تشغيل نغمة اختبار لمدة 30 ثانية...")
+
 			}
 
 		}

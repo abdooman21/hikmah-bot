@@ -4,8 +4,8 @@ services:
     container_name: hikmah-bot
     restart: unless-stopped
     environment:
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_hikmah:5432/${POSTGRES_DB}?sslmode=disable
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_hikmah:5432/${POSTGRES_DB}?sslmode=disable
     networks:
       - hikmah-net
 
