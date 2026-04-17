@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"log"
 	"math/rand/v2"
 	"strings"
 
@@ -112,32 +111,28 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 				}
 				s.ChannelMessageSendEmbed(m.ChannelID, helpEmbed)
 
-			// added
+				// added
 
 			case "راديو":
-				// Find which voice channel the user is currently in
-				s.ChannelTyping(m.ChannelID)
-				// s.ChannelMessageSend(m.ChannelID, "⚠️ قريباَ! , قيد الإنشاء")
 				voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
 				if voiceChannelID == "" {
 					s.ChannelMessageSend(m.ChannelID, "⚠️ يجب أن تكون في قناة صوتية أولاً.")
 					return
 				}
 
-				if err := api.Voice.Join(s, m.GuildID, voiceChannelID); err != nil {
-					log.Println("voice join error:", err)
-					s.ChannelMessageSend(m.ChannelID, "❌ فشل الانضمام إلى القناة الصوتية.")
-					return
+				player, ok := api.Voice.GetPlayer(m.GuildID)
+				if !ok {
+					var err error
+					player, err = api.Voice.Join(s, m.GuildID, voiceChannelID)
+					if err != nil {
+						s.ChannelMessageSend(m.ChannelID, "❌ فشل الانضمام إلى القناة الصوتية.")
+						return
+					}
 				}
+
 				s.ChannelMessageSend(m.ChannelID, "📻 جارٍ تشغيل راديو القرآن الكريم...")
 
-			case "وقف":
-				if !api.Voice.IsActive(m.GuildID) {
-					s.ChannelMessageSend(m.ChannelID, "⚠️ البوت ليس في أي قناة صوتية.")
-					return
-				}
-				api.Voice.Leave(m.GuildID)
-				s.ChannelMessageSend(m.ChannelID, "⏹️ تم إيقاف البث وقطع الاتصال.")
+				player.PlayStream("https://Qurango.net/radio/saud_alshuraim")
 
 			case "تست":
 				voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
@@ -145,12 +140,24 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 					s.ChannelMessageSend(m.ChannelID, "⚠️ يجب أن تكون في قناة صوتية أولاً.")
 					return
 				}
-				if err := api.Voice.JoinTest(s, m.GuildID, voiceChannelID); err != nil {
-					log.Println("voice test join error:", err)
-					s.ChannelMessageSend(m.ChannelID, "❌ فشل.")
-					return
+
+				player, ok := api.Voice.GetPlayer(m.GuildID)
+				if !ok {
+					var err error
+					player, err = api.Voice.Join(s, m.GuildID, voiceChannelID)
+					if err != nil {
+						s.ChannelMessageSend(m.ChannelID, "❌ فشل الانضمام.")
+						return
+					}
 				}
-				s.ChannelMessageSend(m.ChannelID, "🔊 تشغيل نغمة اختبار لمدة 30 ثانية...")
+
+				s.ChannelMessageSend(m.ChannelID, "🔊 تشغيل نغمة اختبار...")
+
+				player.PlayStream("https://www.soundjay.com/buttons/sounds/beep-01a.mp3")
+
+			case "وقف":
+				api.Voice.Leave(m.GuildID)
+				s.ChannelMessageSend(m.ChannelID, "⏹️ تم إيقاف البث وقطع الاتصال.")
 
 			}
 

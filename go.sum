@@ -1,13 +1,13 @@
+github.com/cheezecakee/dca v0.0.0-20240722231258-f89cad9038bb h1:kKH9VU0q1SVJxAaH47lhZGP3vqSsRnChCEL6Acc0L1U=
+github.com/cheezecakee/dca v0.0.0-20240722231258-f89cad9038bb/go.mod h1:ZQO7WgF2yBEy/+xMvKTNp+sNER7hnU6ydVLEconFwIY=
 github.com/cloudflare/circl v1.6.3 h1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=
 github.com/cloudflare/circl v1.6.3/go.mod h1:2eXP6Qfat4O/Yhh8BznvKnJ+uzEoTQ6jVKJRn81BiS4=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/jogramming/dca v0.0.0-20210930103944-155f5e5f0cc7 h1:3nT2dRfYYlVBofXRG2WECKHDN5nwL22oyeBTClAONzU=
-github.com/jogramming/dca v0.0.0-20210930103944-155f5e5f0cc7/go.mod h1:dxkp/IJD9cJBPedO7O+wWDidThTNKcl5/AkIbvLV5mE=
+github.com/jogramming/ogg v0.0.0-20161220051205-b4f6f4cf3757 h1:UPyGbVbqad3OF4/HE6keB+TPjs71tO0ugX04PdbxNbQ=
+github.com/jogramming/ogg v0.0.0-20161220051205-b4f6f4cf3757/go.mod h1:7j65ASjv+ZalAOsj73of5XIhzrjjwhcuCdde/M7+b9k=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
-github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757 h1:Kyv+zTfWIGRNaz/4+lS+CxvuKVZSKFz/6G8E3BKKBRs=
-github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757/go.mod h1:cZnNmdLiLpihzgIVqiaQppi9Ts3D4qF/M45//yW35nI=
 github.com/lib/pq v1.11.1 h1:wuChtj2hfsGmmx3nf1m7xC2XpK6OtelS2shMY+bGMtI=
 github.com/lib/pq v1.11.1/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/yeongaori/discordgo v0.0.0-20260321152711-3d3293e4c765 h1:AuG3qG+K4LLcrZRdMGJUTjg7hVTIwnbdECl0116W84E=

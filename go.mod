@@ -7,13 +7,13 @@ require github.com/bwmarrin/discordgo v0.29.0
 replace github.com/bwmarrin/discordgo => github.com/yeongaori/discordgo v0.0.0-20260321152711-3d3293e4c765
 
 require (
-	github.com/jogramming/dca v0.0.0-20210930103944-155f5e5f0cc7
+	github.com/cheezecakee/dca v0.0.0-20240722231258-f89cad9038bb
 	github.com/joho/godotenv v1.5.1
 )
 
 require (
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/jonas747/ogg v0.0.0-20161220051205-b4f6f4cf3757 // indirect
+	github.com/jogramming/ogg v0.0.0-20161220051205-b4f6f4cf3757 // indirect
 )
 
 require (
