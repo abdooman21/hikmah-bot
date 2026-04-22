@@ -2,7 +2,7 @@ package web
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -19,12 +19,12 @@ func GetCatFact() string {
 
 	req, err := http.NewRequest("GET", catApiPath, nil)
 	if err != nil {
-		log.Println("an Error ccourd will making new req :", err)
+		slog.Error("an Error ccourd will making new req :", "err", err)
 		return ""
 	}
 	resp, err := c.Do(req)
 	if err != nil {
-		log.Println("An Error occuerd with respond :", err)
+		slog.Error("An Error occuerd with respond :", "err", err)
 		return ""
 	}
 	defer resp.Body.Close()
@@ -33,7 +33,7 @@ func GetCatFact() string {
 
 	err = decoder.Decode(catfact)
 	if err != nil {
-		log.Println("Error decoding respond,: ", err)
+		slog.Error("Error decoding respond,:", "err", err)
 		return ""
 	}
 

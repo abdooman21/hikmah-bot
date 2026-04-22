@@ -44,6 +44,12 @@ type Answer struct {
 	T      int    `json:"t"`
 }
 
+type Radio struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Link string `json:"link"`
+}
+
 func main() {
 
 	godotenv.Load()
@@ -61,7 +67,6 @@ func main() {
 	if err := dec.Decode(&db); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("this is host", os.Getenv("DB_HOST"))
 	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
@@ -81,6 +86,10 @@ func main() {
 
 	if err = insertData(dbConn, db); err != nil {
 		log.Fatalf("insert data: %v", err)
+	}
+
+	if err = insertRadios(dbConn); err != nil {
+		log.Fatalf("insert radios: %v", err)
 	}
 
 	fmt.Println("Cnnected and data inserted O.K.")
@@ -162,4 +171,38 @@ func (t Topic) LevelsSorted() []string {
 	}
 	sort.Strings(levels)
 	return levels
+}
+
+func insertRadios(dbConn *sql.DB) error {
+	path := "setup/radios.json"
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("file not found path: %s, err %s ", path, err.Error())
+	}
+	defer f.Close()
+
+	var radios []Radio
+	dec := json.NewDecoder(f)
+	if err := dec.Decode(&radios); err != nil {
+		return err
+	}
+
+	tx, err := dbConn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, r := range radios {
+		_, err := tx.Exec("INSERT INTO radios (id, name, link) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = $2, link = $3", r.ID, r.Name, r.Link)
+		if err != nil {
+			return fmt.Errorf("failed to insert radio: %v", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	fmt.Println("    Inserted", len(radios), "radios")
+	return nil
 }

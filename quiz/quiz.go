@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand/v2"
 	"os"
 	"strconv"
@@ -63,7 +63,7 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 	})
 
 	if err != nil {
-		log.Println("failed at getting Q, ", err.Error(), "params : cat Id ", cat, " level: ", lvl)
+		slog.Error("failed at getting Q", "err", err, "cat", cat, "level", lvl)
 		s.ChannelMessageSend(channID, "!5## فشل بجلب السؤال المعذرة على الخطأ ")
 
 		return
@@ -72,7 +72,7 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 	var answers []Answer
 	err = json.Unmarshal(qData.Answers, &answers)
 	if err != nil {
-		log.Println("JSON Error:", err)
+		slog.Error("JSON Error", "err", err)
 		return
 	}
 
@@ -100,7 +100,7 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 	name := "icon"
 	file, err := os.Open(temppath)
 	if err != nil {
-		log.Print("failed to retreve path : ", temppath)
+		slog.Error("failed to retrieve path", "path", temppath)
 		return
 	}
 
@@ -130,6 +130,9 @@ func send_QwithCriteria(s *discordgo.Session, channID string, db *database.Queri
 			discordgo.ActionsRow{Components: buttons},
 		},
 	})
+	if err != nil {
+		slog.Error("failed to send message", "err", err)
+	}
 
 }
 
@@ -176,8 +179,14 @@ func Get_Q(s *discordgo.Session, m *discordgo.MessageCreate, db *database.Querie
 func QuizInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate, db *database.Queries) {
 	customID := i.MessageComponentData().CustomID
 	parts := strings.Split(customID, "_")
-	choice, _ := strconv.Atoi(parts[1])
-	correct, _ := strconv.Atoi(parts[2])
+	choice, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return
+	}
+	correct, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return
+	}
 
 	user := i.Member.User
 	if i.User != nil {
@@ -237,19 +246,7 @@ func QuizInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	}
 
 }
-
 func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate, db *database.Queries) {
-	customID := i.MessageComponentData().CustomID
-	parts := strings.Split(customID, "_")
-	choice, _ := strconv.Atoi(parts[1])
-	correct, _ := strconv.Atoi(parts[2])
-
-	user := i.Member.User
-	if i.User != nil {
-		user = i.User
-	}
-
-	//  Get the session for this channel
 	sessionsMu.RLock()
 	session, exists := activeSessions[i.ChannelID]
 	sessionsMu.RUnlock()
@@ -257,72 +254,186 @@ func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCre
 	if !exists || !session.IsActive {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "هذا الكويز انتهى بالفعل!", Flags: discordgo.MessageFlagsEphemeral},
+			Data: &discordgo.InteractionResponseData{
+				Content: "هذا الكويز انتهى بالفعل!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
 		})
 		return
 	}
 
-	if choice == correct {
-		session.Mutex.Lock()
-		session.Scores[user.ID]++
-		curScore := session.Scores[user.ID]
-		session.Participants[user.ID] = user.Username
-		session.CurrentRound++
-		roundReached := session.CurrentRound
-		maxRounds := session.MaxRounds
-		cat := session.CategoryID
-		lvl := session.Difficulty
-		session.Mutex.Unlock()
+	data := i.MessageComponentData()
+	parts := strings.Split(data.CustomID, "_")
+	if len(parts) < 3 {
+		return
+	}
 
-		actionRow := i.Message.Components[0].(*discordgo.ActionsRow)
-		correctBtn := actionRow.Components[correct].(*discordgo.Button)
+	choice, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return
+	}
+	correct, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return
+	}
 
-		oldembed := i.Message.Embeds[0]
-		oldembed.Description += fmt.Sprintf("\n الجواب الصحيح هو : %s ", correctBtn.Label)
-		oldembed.Color = 0x00FF00 // Green
+	user := i.Member.User
+	if i.User != nil {
+		user = i.User
+	}
 
-		msg := fmt.Sprintf("✅ إجابة صحيحة من **%s**! (جولة %d/%d)", user.Username, roundReached, maxRounds)
-
+	if choice != correct {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: msg,
-				Embeds: []*discordgo.MessageEmbed{{
-					Title:       "🏆 بطل الكويز",
-					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي %d ", user.Username, curScore),
-					Thumbnail: &discordgo.MessageEmbedThumbnail{
-						URL: user.AvatarURL("128"),
-					},
-					Color: 0xFFFF00, // Gold
-				}},
+				Content: "❌ خطأ! حاول مرة أخرى.",
+				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
+		return
+	}
 
-		s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-			ID:         i.Message.ID,
-			Channel:    i.ChannelID,
-			Embeds:     &[]*discordgo.MessageEmbed{oldembed},
-			Components: &[]discordgo.MessageComponent{},
-		})
+	session.Mutex.Lock()
+	session.Scores[user.ID]++
+	session.Participants[user.ID] = user.Username
+	session.CurrentRound++
 
-		if roundReached < maxRounds {
-			// #TODO change delay logic
-			go func() {
-				time.Sleep(2 * time.Second)
+	curScore := session.Scores[user.ID]
+	roundReached := session.CurrentRound
+	maxRounds := session.MaxRounds
+	cat := session.CategoryID
+	lvl := session.Difficulty
+	session.Mutex.Unlock()
 
-				send_QwithCriteria(s, i.ChannelID, db, "session", cat, lvl)
-			}()
-		} else {
-			finishSession(s, i.ChannelID, session)
+	oldEmbed := i.Message.Embeds[0]
+
+	var correctLabel string
+	if len(i.Message.Components) > 0 {
+		if row, ok := i.Message.Components[0].(*discordgo.ActionsRow); ok {
+			if btn, ok := row.Components[correct].(*discordgo.Button); ok {
+				correctLabel = btn.Label
+			}
 		}
-	} else {
+	}
 
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "❌ خطأ! حاول مرة أخرى.", Flags: discordgo.MessageFlagsEphemeral},
-		})
+	oldEmbed.Description += fmt.Sprintf("\n✅ الجواب الصحيح هو: **%s**", correctLabel)
+	oldEmbed.Color = 0x00FF00
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("✅ إجابة صحيحة من **%s**! (جولة %d/%d)", user.Username, roundReached, maxRounds),
+			Embeds: []*discordgo.MessageEmbed{{
+				Title:       "🏆 بطل الكويز",
+				Description: fmt.Sprintf("**%s** حصل على نقطة! رصيدك: `%d`", user.Username, curScore),
+				Thumbnail:   &discordgo.MessageEmbedThumbnail{URL: user.AvatarURL("128")},
+				Color:       0xFFFF00,
+			}},
+		},
+	})
+
+	s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:         i.Message.ID,
+		Channel:    i.ChannelID,
+		Embeds:     &[]*discordgo.MessageEmbed{oldEmbed},
+		Components: &[]discordgo.MessageComponent{},
+	})
+
+	if roundReached < maxRounds {
+		go func() {
+			time.Sleep(2 * time.Second)
+			send_QwithCriteria(s, i.ChannelID, db, "session", cat, lvl)
+		}()
+	} else {
+		finishSession(s, i.ChannelID, session)
 	}
 }
+
+// func SessionInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate, db *database.Queries) {
+// 	customID := i.MessageComponentData().CustomID
+// 	parts := strings.Split(customID, "_")
+// 	choice, _ := strconv.Atoi(parts[1])
+// 	correct, _ := strconv.Atoi(parts[2])
+
+// 	user := i.Member.User
+// 	if i.User != nil {
+// 		user = i.User
+// 	}
+
+// 	//  Get the session for this channel
+// 	sessionsMu.RLock()
+// 	session, exists := activeSessions[i.ChannelID]
+// 	sessionsMu.RUnlock()
+
+// 	if !exists || !session.IsActive {
+// 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+// 			Type: discordgo.InteractionResponseChannelMessageWithSource,
+// 			Data: &discordgo.InteractionResponseData{Content: "هذا الكويز انتهى بالفعل!", Flags: discordgo.MessageFlagsEphemeral},
+// 		})
+// 		return
+// 	}
+
+// 	if choice == correct {
+// 		session.Mutex.Lock()
+// 		session.Scores[user.ID]++
+// 		curScore := session.Scores[user.ID]
+// 		session.Participants[user.ID] = user.Username
+// 		session.CurrentRound++
+// 		roundReached := session.CurrentRound
+// 		maxRounds := session.MaxRounds
+// 		cat := session.CategoryID
+// 		lvl := session.Difficulty
+// 		session.Mutex.Unlock()
+
+// 		actionRow := i.Message.Components[0].(*discordgo.ActionsRow)
+// 		correctBtn := actionRow.Components[correct].(*discordgo.Button)
+
+// 		oldembed := i.Message.Embeds[0]
+// 		oldembed.Description += fmt.Sprintf("\n الجواب الصحيح هو : %s ", correctBtn.Label)
+// 		oldembed.Color = 0x00FF00 // Green
+
+// 		msg := fmt.Sprintf("✅ إجابة صحيحة من **%s**! (جولة %d/%d)", user.Username, roundReached, maxRounds)
+
+// 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+// 			Type: discordgo.InteractionResponseChannelMessageWithSource,
+// 			Data: &discordgo.InteractionResponseData{
+// 				Content: msg,
+// 				Embeds: []*discordgo.MessageEmbed{{
+// 					Title:       "🏆 بطل الكويز",
+// 					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي %d ", user.Username, curScore),
+// 					Thumbnail: &discordgo.MessageEmbedThumbnail{
+// 						URL: user.AvatarURL("128"),
+// 					},
+// 					Color: 0xFFFF00, // Gold
+// 				}},
+// 			},
+// 		})
+
+// 		s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+// 			ID:         i.Message.ID,
+// 			Channel:    i.ChannelID,
+// 			Embeds:     &[]*discordgo.MessageEmbed{oldembed},
+// 			Components: &[]discordgo.MessageComponent{},
+// 		})
+
+// 		if roundReached < maxRounds {
+// 			// #TODO change delay logic
+// 			go func() {
+// 				time.Sleep(2 * time.Second)
+
+// 				send_QwithCriteria(s, i.ChannelID, db, "session", cat, lvl)
+// 			}()
+// 		} else {
+// 			finishSession(s, i.ChannelID, session)
+// 		}
+// 	} else {
+
+// 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+// 			Type: discordgo.InteractionResponseChannelMessageWithSource,
+// 			Data: &discordgo.InteractionResponseData{Content: "❌ خطأ! حاول مرة أخرى.", Flags: discordgo.MessageFlagsEphemeral},
+// 		})
+// 	}
+// }
 
 func finishSession(s *discordgo.Session, channelID string, session *QuizSession) {
 	sessionsMu.Lock()
@@ -373,4 +484,32 @@ func Start_session(s *discordgo.Session, m *discordgo.MessageCreate, db *databas
 		return
 	}
 	SendSetupMessage(s, m.ChannelID)
+}
+
+// StartSetupFromSlash is the slash-command entry point for /quiz.
+func StartSetupFromSlash(s *discordgo.Session, channID, userID string, db *database.Queries) {
+	sessionsMu.RLock()
+	_, exists := activeSessions[channID]
+	sessionsMu.RUnlock()
+	if exists {
+		s.ChannelMessageSend(channID, "⚠️ هناك كويز جاري بالفعل في هذه القناة!")
+		return
+	}
+	pendingMu.Lock()
+	pendingSetups[channID] = &pendingSetup{StartedBy: userID}
+	pendingMu.Unlock()
+	slog.Info("slash /quiz triggered", "channel", channID, "user", userID)
+	SendSetupMessage(s, channID)
+}
+
+// GetQFromSlash is the slash-command entry point for /سؤال.
+func GetQFromSlash(s *discordgo.Session, channID string, db *database.Queries, cat, lvl int) {
+	if cat == 0 {
+		cat = rand.IntN(6) + 1
+	}
+	if lvl == 0 {
+		lvl = rand.IntN(3) + 1
+	}
+	slog.Info("slash /سؤال", "channel", channID, "cat", cat, "lvl", lvl)
+	send_QwithCriteria(s, channID, db, "quiz", []int{cat}, lvl)
 }

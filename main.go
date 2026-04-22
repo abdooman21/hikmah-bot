@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/abdooman21/go-discord/bot"
@@ -16,7 +17,9 @@ import (
 
 func main() {
 
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("No .env file found, relying on environment variables")
+	}
 
 	ds, err := discordgo.New("Bot " + env.GetString("DISCORD_TOKEN", ""))
 
@@ -44,7 +47,7 @@ func main() {
 		Voice: voice.NewVoiceManager(),
 	}
 
-	log.Println("bot running !!")
+	slog.Info("bot running !!")
 	app.Run()
 
 }
