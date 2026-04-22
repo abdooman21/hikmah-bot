@@ -1,7 +1,7 @@
 package bot
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
@@ -22,14 +22,23 @@ func (api *Application) Run() {
 
 	api.Bot.AddHandler(api.newMessage)
 	api.Bot.AddHandler(api.HandleInteractions)
+	api.Bot.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		slog.Info("bot logged in", "username", r.User.Username)
+		guildID := os.Getenv("DEV_GUILD_ID")
+		api.RegisterCommands(guildID)
+	})
 
-	api.Bot.Open()
+	err := api.Bot.Open()
+	if err != nil {
+		slog.Error("error opening connection", "err", err)
+		return
+	}
 	defer api.Bot.Close()
 
 	// graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	sig := <-c
-	log.Println("Graceful  server kill", sig)
+	slog.Info("Graceful server kill", "signal", sig)
 
 }

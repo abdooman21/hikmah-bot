@@ -28,6 +28,12 @@ type Question struct {
 	Link        sql.NullString
 }
 
+type Radio struct {
+	ID   int32
+	Name string
+	Link string
+}
+
 type Topic struct {
 	ID         int32
 	CategoryID int32

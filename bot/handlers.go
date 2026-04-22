@@ -1,7 +1,10 @@
 package bot
 
 import (
+	"context"
+	"fmt"
 	"math/rand/v2"
+	"strconv"
 	"strings"
 
 	"github.com/abdooman21/go-discord/quiz"
@@ -11,27 +14,45 @@ import (
 )
 
 func (api *Application) HandleInteractions(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Type != discordgo.InteractionMessageComponent {
-		return
-	}
+	switch i.Type {
 
-	customID := i.MessageComponentData().CustomID
-	// #TODO make the quiz handler in it's own function
-	checkID := strings.Split(customID, "_")
-	switch checkID[0] {
+	case discordgo.InteractionApplicationCommand:
+		api.handleSlashCommand(s, i)
+
+	case discordgo.InteractionMessageComponent:
+		customID := i.MessageComponentData().CustomID
+		checkID := strings.Split(customID, "_")
+		switch checkID[0] {
+		case "quiz":
+			quiz.QuizInteractionHandler(s, i, api.DB)
+		case "session":
+			quiz.SessionInteractionHandler(s, i, api.DB)
+		case "setup":
+			quiz.SetupInteractionHandler(s, i, api.DB)
+		case "radio":
+			voiceHand(s, i, api, customID)
+		default:
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{Content: "oops where I am \"eyes\" ", Flags: 64},
+			})
+		}
+	}
+}
+
+func (api *Application) handleSlashCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	switch i.ApplicationCommandData().Name {
 	case "quiz":
-		quiz.QuizInteractionHandler(s, i, api.DB)
-	case "session":
-		quiz.SessionInteractionHandler(s, i, api.DB)
-	case "setup":
-		quiz.SetupInteractionHandler(s, i, api.DB)
-	default:
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{Content: "oops where I am \"eyes\" ", Flags: 64},
-		})
+		api.slashQuiz(s, i)
+	case "سؤال":
+		api.slashSingleQuestion(s, i)
+	case "راديو":
+		api.slashRadio(s, i)
+	case "وقف":
+		api.slashStop(s, i)
+	case "مساعدة":
+		api.slashHelp(s, i)
 	}
-
 }
 
 func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -114,25 +135,35 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 				// added
 
 			case "راديو":
-				voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
-				if voiceChannelID == "" {
-					s.ChannelMessageSend(m.ChannelID, "⚠️ يجب أن تكون في قناة صوتية أولاً.")
+				radios, err := api.DB.GetRadios(context.Background())
+				if err != nil {
+					s.ChannelMessageSend(m.ChannelID, "❌ حدث خطأ أثناء جلب قائمة الإذاعات.")
 					return
 				}
 
-				player, ok := api.Voice.GetPlayer(m.GuildID)
-				if !ok {
-					var err error
-					player, err = api.Voice.Join(s, m.GuildID, voiceChannelID)
-					if err != nil {
-						s.ChannelMessageSend(m.ChannelID, "❌ فشل الانضمام إلى القناة الصوتية.")
-						return
-					}
+				var options []discordgo.SelectMenuOption
+				for _, r := range radios {
+					options = append(options, discordgo.SelectMenuOption{
+						Label:       r.Name,
+						Value:       fmt.Sprintf("play_radio_%d", r.ID),
+						Description: fmt.Sprintf("إذاعة رقم %d", r.ID),
+					})
 				}
 
-				s.ChannelMessageSend(m.ChannelID, "📻 جارٍ تشغيل راديو القرآن الكريم...")
-
-				player.PlayStream("https://Qurango.net/radio/saud_alshuraim")
+				s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+					Content: "📻 اختر الإذاعة التي تريد الاستماع إليها:",
+					Components: []discordgo.MessageComponent{
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.SelectMenu{
+									CustomID:    "radio_select",
+									Placeholder: "اختر إذاعة...",
+									Options:     options,
+								},
+							},
+						},
+					},
+				})
 
 			case "تست":
 				voiceChannelID := findUserVoiceChannel(s, m.GuildID, m.Author.ID)
@@ -179,4 +210,62 @@ func findUserVoiceChannel(s *discordgo.Session, guildID, userID string) string {
 		}
 	}
 	return ""
+}
+
+func voiceHand(s *discordgo.Session, i *discordgo.InteractionCreate, api *Application, customID string) {
+	if customID == "radio_select" {
+		values := i.MessageComponentData().Values
+		if len(values) == 0 {
+			return
+		}
+		val := values[0]
+		parts := strings.Split(val, "_")
+		if len(parts) < 3 {
+			return
+		}
+		radioID, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return
+		}
+
+		radio, err := api.DB.GetRadioByID(context.Background(), int32(radioID))
+		if err != nil {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{Content: "❌ لم يتم العثور على الإذاعة."},
+			})
+			return
+		}
+
+		voiceChannelID := findUserVoiceChannel(s, i.GuildID, i.Member.User.ID)
+		if voiceChannelID == "" {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{Content: "⚠️ يجب أن تكون في قناة صوتية أولاً."},
+			})
+			return
+		}
+
+		player, ok := api.Voice.GetPlayer(i.GuildID)
+		if !ok {
+			player, err = api.Voice.Join(s, i.GuildID, voiceChannelID)
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{Content: "❌ فشل الانضمام إلى القناة الصوتية."},
+				})
+				return
+			}
+		}
+
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseUpdateMessage,
+			Data: &discordgo.InteractionResponseData{
+				Content:    fmt.Sprintf("📻 جارٍ تشغيل: **%s**", radio.Name),
+				Components: []discordgo.MessageComponent{},
+			},
+		})
+
+		player.PlayStream(radio.Link)
+	}
 }
