@@ -80,7 +80,7 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 				s.ChannelTyping(m.ChannelID)
 				s.ChannelMessageSend(m.ChannelID, "hey")
 
-			case "Cat":
+			case "cat", "Cat", "قطة":
 				fact := web.GetCatFact()
 				if fact == "" {
 					s.ChannelTyping(m.ChannelID)
@@ -119,7 +119,7 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 			case "كويز":
 				go quiz.Start_session(s, m, api.DB)
 
-			case "مساعدة":
+			case "مساعدة", "مساعده", "help", "الو":
 				helpEmbed := &discordgo.MessageEmbed{
 					Title: "📖 كيف تستخدمني",
 					Color: 0x5865F2,
@@ -128,6 +128,7 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 						{Name: "@bot كويز", Value: "جلسة 5 جولات — ستظهر أزرار لاختيار التصنيف والصعوبة", Inline: false},
 						{Name: "التصنيفات (1-6)", Value: "١ التفسير · ٢ العقيدة · ٣ الحديث · ٤ الفقه · ٥ التاريخ · ٦ اللغة_العربية", Inline: false},
 						{Name: "الصعوبة (1-3)", Value: "١ سهل · ٢ متوسط · ٣ صعب", Inline: false},
+						{Name: "قطة || cat", Value: "اجلب معلومة متعلقة عن القطط", Inline: false},
 					},
 				}
 				s.ChannelMessageSendEmbed(m.ChannelID, helpEmbed)

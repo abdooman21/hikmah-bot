@@ -22,11 +22,12 @@ func (api *Application) Run() {
 
 	api.Bot.AddHandler(api.newMessage)
 	api.Bot.AddHandler(api.HandleInteractions)
-	api.Bot.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		slog.Info("bot logged in", "username", r.User.Username)
-		guildID := os.Getenv("DEV_GUILD_ID")
-		api.RegisterCommands(guildID)
-	})
+	// for dev
+	// api.Bot.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+	// 	slog.Info("bot logged in", "username", r.User.Username)
+	// 	guildID := os.Getenv("DEV_GUILD_ID")
+	// 	api.RegisterCommands(guildID)
+	// })
 
 	err := api.Bot.Open()
 	if err != nil {
