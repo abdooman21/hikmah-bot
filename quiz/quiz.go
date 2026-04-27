@@ -39,6 +39,9 @@ type QuizSession struct {
 	Mutex    sync.Mutex
 }
 
+var QScores = make(map[string]int)
+var Qmu sync.RWMutex
+
 // Global map to track sessions per channel
 var activeSessions = make(map[string]*QuizSession)
 var sessionsMu sync.RWMutex
@@ -214,6 +217,10 @@ func QuizInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		oldembed.Color = 0x00FF00 // Green
 
 		msg := fmt.Sprintf("✅ إجابة صحيحة من **%s**! ", user.Username)
+		Qmu.Lock()
+		QScores[user.Username] += 1
+		scores := QScores[user.Username]
+		Qmu.Unlock()
 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -221,7 +228,7 @@ func QuizInteractionHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 				Content: msg,
 				Embeds: []*discordgo.MessageEmbed{{
 					Title:       "🏆 بطل الكويز",
-					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي ", user.Username), // # TODO add points
+					Description: fmt.Sprintf("**%s** إجابته صحيحة! ونقاطك الحالية هي **%d**", user.Username, scores), // # TODO add points
 					Thumbnail: &discordgo.MessageEmbedThumbnail{
 						URL: user.AvatarURL("128"),
 					},
