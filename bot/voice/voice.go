@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog" // Good for professional logging
+	"log/slog"
 	"sync"
 	"time"
 
@@ -12,10 +12,8 @@ import (
 	"github.com/cheezecakee/dca"
 )
 
-// defaultEncodeOptions holds the FFmpeg settings.
 func defaultEncodeOptions() *dca.EncodeOptions {
 	return &dca.EncodeOptions{
-
 		FrameRate: 48000,
 
 		FrameDuration: 20,
@@ -29,12 +27,9 @@ func defaultEncodeOptions() *dca.EncodeOptions {
 		BufferedFrames: 100,
 
 		VariableBitrate: true,
-
-		StartTime: 0,
 	}
 }
 
-// VoiceManager keeps track of all the servers the bot is in.
 type VoiceManager struct {
 	mu      sync.RWMutex
 	players map[string]*Player
@@ -46,43 +41,42 @@ func NewVoiceManager() *VoiceManager {
 	}
 }
 
-// Player controls the audio for one specific server.
 type Player struct {
-	mu      sync.Mutex
-	guildID string
-	vc      *discordgo.VoiceConnection
+	mu        sync.Mutex
+	guildID   string
+	channelID string
+	session   *discordgo.Session
+	vc        *discordgo.VoiceConnection
 
-	// Context helps us stop the audio safely
 	streamCtx    context.Context
 	cancelStream context.CancelFunc
 }
 
-// Join makes the bot enter the voice channel.
 func (vm *VoiceManager) Join(s *discordgo.Session, guildID, channelID string) (*Player, error) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
-	// If already in this server, clean up first
-	if existingPlayer, ok := vm.players[guildID]; ok {
-		existingPlayer.Disconnect()
+	if p, ok := vm.players[guildID]; ok {
+		p.Disconnect()
 		delete(vm.players, guildID)
 	}
 
 	vc, err := s.ChannelVoiceJoin(guildID, channelID, false, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to join: %w", err)
+		return nil, fmt.Errorf("join failed: %w", err)
 	}
 
-	player := &Player{
-		guildID: guildID,
-		vc:      vc,
+	p := &Player{
+		guildID:   guildID,
+		channelID: channelID,
+		session:   s,
+		vc:        vc,
 	}
-	vm.players[guildID] = player
 
-	return player, nil
+	vm.players[guildID] = p
+	return p, nil
 }
 
-// GetPlayer finds the bot in a server without joining again.
 func (vm *VoiceManager) GetPlayer(guildID string) (*Player, bool) {
 	vm.mu.RLock()
 	defer vm.mu.RUnlock()
@@ -90,19 +84,17 @@ func (vm *VoiceManager) GetPlayer(guildID string) (*Player, bool) {
 	return p, ok
 }
 
-// Leave stops everything and removes the bot from the channel.
 func (vm *VoiceManager) Leave(guildID string) {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
 
-	if player, ok := vm.players[guildID]; ok {
-		player.Disconnect()
+	if p, ok := vm.players[guildID]; ok {
+		p.Disconnect()
 		delete(vm.players, guildID)
 	}
 }
 
-// StopCurrentAudio stops the sound but keeps the bot in the channel.
-func (p *Player) StopCurrentAudio() {
+func (p *Player) Stop() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -112,17 +104,14 @@ func (p *Player) StopCurrentAudio() {
 	}
 }
 
-// Disconnect stops sound and leaves the channel.
 func (p *Player) Disconnect() {
-	p.StopCurrentAudio()
+	p.Stop()
 	p.vc.Speaking(false)
 	p.vc.Disconnect()
 }
 
-// PlayStream plays any link you give it.
-// If something is already playing, it stops the old one and starts the new one.
-func (p *Player) PlayStream(audioURL string) {
-	p.StopCurrentAudio()
+func (p *Player) Play(url string) {
+	p.Stop()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -131,44 +120,86 @@ func (p *Player) PlayStream(audioURL string) {
 	p.cancelStream = cancel
 	p.mu.Unlock()
 
-	go p.runPipeline(ctx, audioURL)
+	go p.loop(ctx, url)
 }
 
-func (p *Player) runPipeline(ctx context.Context, inputURL string) {
+func (p *Player) loop(ctx context.Context, url string) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		if !p.vc.Ready {
+			if err := p.reconnect(); err != nil {
+				slog.Error("reconnect failed", "guild", p.guildID, "err", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+		}
+
+		p.pipeline(ctx, url)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(3 * time.Second):
+		}
+	}
+}
+
+func (p *Player) reconnect() error {
+	p.vc.Speaking(false)
+	p.vc.Disconnect()
+
+	vc, err := p.session.ChannelVoiceJoin(p.guildID, p.channelID, false, true)
+	if err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	p.vc = vc
+	p.mu.Unlock()
+
+	return nil
+}
+
+func (p *Player) pipeline(ctx context.Context, url string) {
 	deadline := time.Now().Add(10 * time.Second)
 	for !p.vc.Ready {
 		if time.Now().After(deadline) {
-			slog.Error("timeout waiting for ready", "guild", p.guildID)
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 
-	encodeSession, err := dca.EncodeFile(inputURL, defaultEncodeOptions())
+	enc, err := dca.EncodeFile(url, defaultEncodeOptions())
 	if err != nil {
-		slog.Error("dca error", "error", err)
 		return
 	}
-	defer encodeSession.Cleanup()
+	defer enc.Cleanup()
 
 	if err := p.vc.Speaking(true); err != nil {
-		slog.Error("speaking error", "error", err)
 		return
 	}
 	defer p.vc.Speaking(false)
 
 	time.Sleep(250 * time.Millisecond)
 
-	done := make(chan error)
-	dca.NewStream(encodeSession, p.vc, done)
+	done := make(chan error, 1)
+	dca.NewStream(enc, p.vc, done)
 
 	select {
 	case err := <-done:
 		if err != nil && err != io.EOF {
-			slog.Error("stream error", "error", err)
+			slog.Error("stream error", "guild", p.guildID, "err", err)
 		}
 	case <-ctx.Done():
-		// Stop was called
-		encodeSession.Stop()
+		enc.Stop()
 	}
 }

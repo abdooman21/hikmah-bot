@@ -185,7 +185,7 @@ func (api *Application) newMessage(s *discordgo.Session, m *discordgo.MessageCre
 
 				s.ChannelMessageSend(m.ChannelID, "🔊 تشغيل نغمة اختبار...")
 
-				player.PlayStream("https://www.soundjay.com/buttons/sounds/beep-01a.mp3")
+				player.Play("https://www.soundjay.com/buttons/sounds/beep-01a.mp3")
 
 			case "وقف":
 				api.Voice.Leave(m.GuildID)
@@ -267,6 +267,6 @@ func voiceHand(s *discordgo.Session, i *discordgo.InteractionCreate, api *Applic
 			},
 		})
 
-		player.PlayStream(radio.Link)
+		player.Play(radio.Link)
 	}
 }
