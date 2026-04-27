@@ -30,7 +30,8 @@ func main() {
 	dbUrl := os.Getenv("DB_URL")
 
 	if dbUrl == "" {
-		log.Fatal("Couldn't load database check .env")
+		slog.Error("Couldn't load database check .env")
+		os.Exit(1)
 	}
 
 	conn, err := sql.Open("postgres", dbUrl)
