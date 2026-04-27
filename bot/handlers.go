@@ -257,6 +257,18 @@ func voiceHand(s *discordgo.Session, i *discordgo.InteractionCreate, api *Applic
 				})
 				return
 			}
+		} else {
+			same := api.Voice.CheckusrChann(player, voiceChannelID)
+			if !same {
+				player, err = api.Voice.Join(s, i.GuildID, voiceChannelID)
+				if err != nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{Content: "❌ فشل تغيير القناة الصوتية لقناة المستخدم."},
+					})
+					return
+				}
+			}
 		}
 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

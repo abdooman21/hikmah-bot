@@ -35,6 +35,18 @@ type VoiceManager struct {
 	players map[string]*Player
 }
 
+// checks if user is in the same channel as the player or not
+func (vm *VoiceManager) CheckusrChann(p *Player, vcID string) bool {
+	p.mu.RLock()
+	currvc := p.channelID
+	p.mu.RUnlock()
+	if currvc == vcID {
+		return true
+	}
+	return false
+
+}
+
 func NewVoiceManager() *VoiceManager {
 	return &VoiceManager{
 		players: make(map[string]*Player),
@@ -42,7 +54,7 @@ func NewVoiceManager() *VoiceManager {
 }
 
 type Player struct {
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	guildID   string
 	channelID string
 	session   *discordgo.Session
